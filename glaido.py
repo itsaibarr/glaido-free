@@ -367,16 +367,16 @@ class Glaido:
         # Start watchers
         threading.Thread(target=self.file_watcher.start, daemon=True).start()
         
-        if HAS_XLIB:
-            # Run hotkey listener (blocks)
-            self.hotkey.start()
-        else:
-            # Fallback: keep running
-            try:
+        try:
+            if HAS_XLIB:
+                # Run hotkey listener (blocks)
+                self.hotkey.start()
+            else:
+                # Fallback: keep running
                 while True:
                     time.sleep(1)
-            except KeyboardInterrupt:
-                print("\n👋 Goodbye!")
+        except KeyboardInterrupt:
+            print("\n👋 Goodbye!")
 
 def main():
     app = Glaido()
