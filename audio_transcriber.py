@@ -11,9 +11,18 @@ import numpy as np
 import sounddevice as sd
 from scipy.io import wavfile
 from groq import Groq
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 # Groq API Key
-GROQ_API_KEY = "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"
+GROQ_API_KEY = os.getenv("GROQ_API_KEY")
+if not GROQ_API_KEY:
+    print("❌ Error: GROQ_API_KEY not found in environment variables.")
+    print("Please create a .env file with your API key:")
+    print("GROQ_API_KEY=your_api_key_here")
+    sys.exit(1)
 
 # Audio settings
 SAMPLE_RATE = 16000  # Whisper expects 16kHz

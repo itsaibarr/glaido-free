@@ -28,8 +28,8 @@ dnf install -y python3-devel python3-tkinter libnotify xclip 2>/dev/null || true
 
 echo ""
 echo "📦 Installing Python dependencies..."
-pip3 install --upgrade sounddevice scipy groq numpy python-xlib pystray Pillow 2>/dev/null || \
-pip install --upgrade sounddevice scipy groq numpy python-xlib pystray Pillow
+pip3 install --upgrade sounddevice scipy groq numpy python-xlib pystray Pillow python-dotenv 2>/dev/null || \
+pip install --upgrade sounddevice scipy groq numpy python-xlib pystray Pillow python-dotenv
 
 echo ""
 echo "📁 Creating installation directory..."
@@ -38,6 +38,16 @@ mkdir -p "$INSTALL_DIR"
 echo "📋 Copying files..."
 cp "$SCRIPT_DIR/glaido.py" "$INSTALL_DIR/"
 chmod +x "$INSTALL_DIR/glaido.py"
+
+# Copy .env file if it exists
+if [ -f "$SCRIPT_DIR/.env" ]; then
+    echo "🔐 Copying environment configuration..."
+    cp "$SCRIPT_DIR/.env" "$INSTALL_DIR/"
+    chmod 600 "$INSTALL_DIR/.env"  # Restrict permissions for security
+else
+    echo -e "${YELLOW}⚠️  Warning: .env file not found!${NC}"
+    echo "Please create $INSTALL_DIR/.env with your GROQ_API_KEY"
+fi
 
 echo ""
 echo "🖥️  Installing desktop entry..."

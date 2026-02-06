@@ -12,6 +12,28 @@ A lightweight voice transcription app for Fedora Linux using Groq Whisper API.
 
 ## Installation
 
+### 1. Setup Environment Variables
+
+Create a `.env` file with your Groq API key:
+
+```bash
+# Copy the example file
+cp .env.example .env
+
+# Edit .env and add your API key
+# Get your API key from: https://console.groq.com/keys
+nano .env
+```
+
+Your `.env` file should contain:
+```
+GROQ_API_KEY=your_actual_api_key_here
+```
+
+**⚠️ IMPORTANT**: Never commit the `.env` file to version control. It's already in `.gitignore`.
+
+### 2. Run Installation
+
 ```bash
 # Clone the repo
 cd ~/projects/glaido-free
@@ -46,6 +68,7 @@ journalctl --user -u glaido -f
 - Python 3.10+
 - sounddevice, scipy, groq, numpy
 - python-xlib, pystray, Pillow
+- python-dotenv (for environment variables)
 - libnotify, xclip
 
 ## Troubleshooting
