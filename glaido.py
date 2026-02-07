@@ -19,7 +19,9 @@ from groq import Groq
 from dotenv import load_dotenv
 
 # Load environment variables from .env file
-load_dotenv()
+# Load environment variables from .env file (in the same directory as this script)
+env_path = Path(__file__).parent / ".env"
+load_dotenv(dotenv_path=env_path)
 
 # Try to import X11 for hotkeys
 try:

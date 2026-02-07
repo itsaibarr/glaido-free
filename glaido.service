@@ -5,6 +5,7 @@ After=graphical-session.target
 [Service]
 Type=simple
 ExecStart=/usr/bin/python3 /opt/glaido/glaido.py
+WorkingDirectory=/opt/glaido
 Restart=on-failure
 RestartSec=5
 Environment=DISPLAY=:0
