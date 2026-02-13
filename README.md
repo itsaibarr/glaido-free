@@ -1,86 +1,66 @@
-# Glaido - Voice Transcription for Linux
+# Glaido
 
-A lightweight voice transcription app for Fedora Linux using Groq Whisper API.
+**Advanced Voice Transcription & AI Prompt Assistant for Linux**
 
-## Features
+Glaido is a technical background service designed for professional workflows. It transforms spoken intent into structured text or optimized AI prompts using the Groq Whisper and Llama 3 APIs.
 
-- **Global Hotkey**: `Ctrl+Shift+Space` works from any application
-- **System Tray**: Visual indicator (green = ready, red = recording)
-- **Desktop Notifications**: Shows transcription result
-- **Clipboard Integration**: Auto-copies transcription for easy paste
-- **Auto-start**: Runs automatically on login
+## ⚡ Core Features
 
-## Installation
+- **Multi-Mode STT Pipeline**:
+  - **Transcribe Mode**: Precise, raw speech-to-text.
+  - **AI Prompt Mode**: High-density intent compression using `llama-3.3-70b-versatile`.
+- **Intelligent I/O Layer**:
+  - **Direct Typing**: Simulates keyboard input into the active window (supports `wtype`, `ydotool`, `xdotool`).
+  - **Clipboard Sync**: Fallback clipboard integration for all transmittals.
+- **System Integration**:
+  - **Global Hotkeys**: Control recording and modes from any application.
+  - **Audio Ducking**: Automatically mutes system audio during recording for clean capture.
+  - **Visual Feedback**: System tray indicators and rich desktop notifications with transcription previews.
+  - **Recording Control**: `Escape` to cancel any ongoing recording immediately.
 
-### 1. Setup Environment Variables
+## 🎹 Keyboard Shortcuts
 
-Create a `.env` file with your Groq API key:
+| Shortcut               | Action                               |
+| :--------------------- | :----------------------------------- |
+| `Ctrl + Shift + Space` | Toggle Recording (Start/Stop)        |
+| `Ctrl + Shift + M`     | Switch Mode (Transcribe ↔ AI Prompt) |
+| `Escape`               | Cancel Recording                     |
 
-```bash
-# Copy the example file
-cp .env.example .env
+## 🛠 Installation
 
-# Edit .env and add your API key
-# Get your API key from: https://console.groq.com/keys
-nano .env
-```
+### 1. Environment Setup
 
-Your `.env` file should contain:
-```
-GROQ_API_KEY=your_actual_api_key_here
-```
-
-**⚠️ IMPORTANT**: Never commit the `.env` file to version control. It's already in `.gitignore`.
-
-### 2. Run Installation
+Register for a Groq API Key at [console.groq.com](https://console.groq.com/keys).
 
 ```bash
-# Clone the repo
+# Clone the repository
 cd ~/projects/glaido-free
 
-# Run installer (needs sudo)
+# Setup credentials
+echo "GROQ_API_KEY=your_actual_key" > .env
+```
+
+### 2. Deployment
+
+The automated installer handles dependencies, systemd service registration, and X11 hotkey configuration.
+
+```bash
 ./install.sh
 ```
 
-## Usage
+## 📦 Dependencies
 
-1. Press `Ctrl+Shift+Space` to start recording
-2. Speak your message
-3. Press `Ctrl+Shift+Space` again to stop
-4. Transcription is auto-copied to clipboard
-5. Paste anywhere with `Ctrl+V`
+- **Core**: Python 3.10+, `sounddevice`, `numpy`, `scipy`, `groq`
+- **Interface**: `python-xlib`, `pystray`, `Pillow`, `libnotify`
+- **Input Simulation**: `wtype` (Wayland), `ydotool` (Generic), or `xdotool` (X11)
+- **Audio Control**: `pactl` (PulseAudio/PipeWire)
 
-## Manual Start
+## 🔍 Troubleshooting
 
-```bash
-# Start the service
-systemctl --user start glaido
+- **Wayland Support**: For hotkeys on Wayland, ensure you have `wtype` or `ydotool` installed and configured.
+- **Audio Input**: Use `pavucontrol` to verify your primary microphone is active if recording seems silent.
+- **Logs**: Monitor the background service via `journalctl --user -u glaido -f`.
 
-# Check status
-systemctl --user status glaido
+---
 
-# View logs
-journalctl --user -u glaido -f
-```
-
-## Dependencies
-
-- Python 3.10+
-- sounddevice, scipy, groq, numpy
-- python-xlib, pystray, Pillow
-- python-dotenv (for environment variables)
-- libnotify, xclip
-
-## Troubleshooting
-
-**Hotkey not working?**
-- Make sure you're running X11 (not Wayland)
-- Check: `echo $XDG_SESSION_TYPE`
-
-**No sound recording?**
-- Check microphone permissions
-- Run: `pavucontrol` to verify input device
-
-## License
-
-MIT
+_MIT License • Built for high-efficiency Linux environments._

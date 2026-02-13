@@ -24,7 +24,7 @@ fi
 
 echo ""
 echo "📦 Installing system dependencies..."
-dnf install -y python3-devel python3-tkinter libnotify xclip 2>/dev/null || true
+dnf install -y python3-devel python3-tkinter libnotify xclip wl-clipboard wtype ydotool xdotool 2>/dev/null || true
 
 echo ""
 echo "📦 Installing Python dependencies..."
@@ -43,6 +43,7 @@ chmod +x "$INSTALL_DIR/glaido.py"
 if [ -f "$SCRIPT_DIR/.env" ]; then
     echo "🔐 Copying environment configuration..."
     cp "$SCRIPT_DIR/.env" "$INSTALL_DIR/"
+    chown "$SUDO_USER:$SUDO_USER" "$INSTALL_DIR/.env"
     chmod 600 "$INSTALL_DIR/.env"  # Restrict permissions for security
 else
     echo -e "${YELLOW}⚠️  Warning: .env file not found!${NC}"
