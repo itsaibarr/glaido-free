@@ -1,0 +1,55 @@
+{
+  "version": 1,
+  "skills": {
+    "authoring-skills": {
+      "source": "vercel/next.js",
+      "sourceType": "github",
+      "computedHash": "38eb8cbf9e1739429a233e57196faa92a7d1436940e121776df17b808e44652a"
+    },
+    "extract-errors": {
+      "source": "facebook/react",
+      "sourceType": "github",
+      "computedHash": "b088123d854e6e3c57ab74746bce30c9231daec33dc73782ac57d7b3121519bc"
+    },
+    "feature-flags": {
+      "source": "facebook/react",
+      "sourceType": "github",
+      "computedHash": "c5335a86f91e81ce4e7035ab48209a4dbb09ef32822796d4778388472f0b0b39"
+    },
+    "fix": {
+      "source": "facebook/react",
+      "sourceType": "github",
+      "computedHash": "d68147149e12e8358926a58ef51b25d88a1e889233284c5ad849e1ee2b521206"
+    },
+    "flags": {
+      "source": "vercel/next.js",
+      "sourceType": "github",
+      "computedHash": "2ce1c081406d5815aa949a1e6b01496e9d2ebd1426d0334e8e5e35d132f7fcac"
+    },
+    "flow": {
+      "source": "facebook/react",
+      "sourceType": "github",
+      "computedHash": "3358c67bbdee529ceb49a37f260fab3cb507be2dfbdedd073295fcae7f16bc7e"
+    },
+    "react-vendoring": {
+      "source": "vercel/next.js",
+      "sourceType": "github",
+      "computedHash": "372b5cbc251e93da3759680b943ca1481cd268dbde1f0bd537fb16331c44279b"
+    },
+    "test": {
+      "source": "facebook/react",
+      "sourceType": "github",
+      "computedHash": "14fabeabacc8be3ea52f7dc209f45d132b2a81d4bdf2a67a73687865594a4d76"
+    },
+    "update-docs": {
+      "source": "vercel/next.js",
+      "sourceType": "github",
+      "computedHash": "b5f495ca63a08c70523ed59fbcf5b5665603d77299d8524ccddeacce024cbb33"
+    },
+    "verify": {
+      "source": "facebook/react",
+      "sourceType": "github",
+      "computedHash": "f8b0daa5cb09d875140d1b9fa0440d969506dfba4365a5b40ef1c4d5f4b59112"
+    }
+  }
+}
