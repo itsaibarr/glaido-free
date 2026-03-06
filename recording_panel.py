@@ -40,49 +40,53 @@ class PanelWindow:
     Features smooth animations, rounded corners, and auto-dismiss.
     """
 
-    # Panel dimensions (per design spec)
-    RECORDING_WIDTH = 300
-    RECORDING_HEIGHT = 48
-    REVIEW_WIDTH = 580
-    REVIEW_HEIGHT = 300
+    # ── Dimensions ──
+    RECORDING_WIDTH = 320
+    RECORDING_HEIGHT = 58
+    REVIEW_WIDTH = 540
+    REVIEW_HEIGHT = 420
     BOTTOM_MARGIN = 50
-    BORDER_RADIUS = 26  # Capsule shape (24-28px range)
+    BORDER_RADIUS = 29  # Full capsule for recording pill
 
-    # Animation settings
-    FADE_DURATION = 150  # ms for fade in/out
+    # ── Animation ──
+    FADE_DURATION = 150
     FADE_STEPS = 10
-    TRANSITION_DURATION = 150  # ms for size transitions
-    TRANSITION_STEPS = 10
+    TRANSITION_DURATION = 200
+    TRANSITION_STEPS = 12
+    PULSE_DURATION = 1200  # ms per pulse cycle
 
-    # Auto-dismiss settings
-    AUTO_DISMISS_DELAY = 6000  # 6 seconds (5-8 second range)
+    # ── Auto-dismiss ──
+    AUTO_DISMISS_DELAY = 8000
 
-    # Colors (Dark theme with translucent background)
-    BG_COLOR = "#141414"  # rgba(20,20,20) - translucent via wm_attributes
-    FG_COLOR = "#ffffff"
-    ACCENT_COLOR = "#ff4444"  # Red for recording indicator
-    SECONDARY_BG = "#2d2d2d"
-    BUTTON_ACCEPT = "#4caf50"
-    BUTTON_REJECT = "#f44336"
-    WAVE_COLOR = "#4a9eff"
-    WAVE_COLOR_HIGH = "#ff6b6b"
-    HIGHLIGHT_ADD = "#4caf50"  # Green for additions
-    HIGHLIGHT_DEL = "#f44336"  # Red for deletions
-    SUGGESTION_BG = "#3d3d3d"
-    BORDER_COLOR = "#0f0f0f"  # Subtle border (will draw with alpha)
-    TIMER_COLOR = "#b0b0b0"  # Slightly dimmed timer
-    MODE_BG_COLOR = "#2a2a2a"  # Muted background for mode capsule
-    TRANSPARENT_COLOR = "#010101"  # Special color for corner transparency on Linux
+    # ── Color palette (WhisperFlow dark) ──
+    BG_COLOR = "#0d0d0e"
+    SURFACE_COLOR = "#17171a"
+    BORDER_COLOR_HEX = "#2a2a2f"
+    FG_COLOR = "#f5f5f7"
+    FG_SECONDARY = "#86868b"
+    ACCENT_COLOR = "#8b5cf6"       # Violet
+    ACCENT_GLOW = "#a78bfa"        # Lighter violet (waveform peaks)
+    SECONDARY_BG = "#17171a"
+    RECORDING_DOT_COLOR = "#ef4444"
+    RECORDING_DOT_SIZE = 10
+    WAVE_COLOR = "#8b5cf6"
+    WAVE_ACTIVE = "#a78bfa"
+    ADD_COLOR = "#34d399"          # Emerald (diff: added)
+    DEL_COLOR = "#f87171"          # Red (diff: removed)
 
-    # Font fallbacks
-    FONT_PRIMARY = (
-        "SF Pro Display",
-        "Segoe UI",
-        "Helvetica Neue",
-        "Arial",
-        "sans-serif",
-    )
-    FONT_MONO = ("SF Mono", "SFMono-Regular", "Consolas", "Monaco", "monospace")
+    # ── Compatibility aliases for unreplaced code ──
+    WAVE_COLOR_HIGH = "#a78bfa"    # maps to ACCENT_GLOW until _draw_waveform replaced
+    SUGGESTION_BG = "#17171a"      # maps to SURFACE_COLOR until _create_review_ui replaced
+    BUTTON_ACCEPT = "#34d399"      # maps to ADD_COLOR until _create_review_ui replaced
+    BUTTON_REJECT = "#f87171"      # maps to DEL_COLOR until _create_review_ui replaced
+    BORDER_COLOR = "#2a2a2f"       # maps to BORDER_COLOR_HEX for _on_resize
+    TIMER_COLOR = "#f5f5f7"        # maps to FG_COLOR until _create_recording_ui replaced
+    MODE_BG_COLOR = "#17171a"      # maps to SURFACE_COLOR until _create_recording_ui replaced
+    TRANSPARENT_COLOR = "#010101"  # Linux transparency hack — kept until _create_window replaced
+
+    # ── Typography ──
+    FONT_PRIMARY = ("Inter", "SF Pro Display", "Helvetica Neue", "Arial", "sans-serif")
+    FONT_MONO = ("JetBrains Mono", "SF Mono", "Consolas", "Monaco", "monospace")
 
     def __init__(self, on_accept=None, on_reject=None):
         """
@@ -140,11 +144,14 @@ class PanelWindow:
         self.content_container = None
 
     def _get_font(self, font_type="primary", size=12, weight="normal"):
-        """Get font tuple with fallbacks."""
+        """Return a tkinter font tuple: (family, size) or (family, size, style)."""
         if font_type == "mono":
-            return self.FONT_MONO[:2] + (size, weight)
-        else:
-            return self.FONT_PRIMARY[:1] + (size, weight)
+            if weight and weight != "normal":
+                return (self.FONT_MONO[0], size, weight)
+            return (self.FONT_MONO[0], size)
+        if weight and weight != "normal":
+            return (self.FONT_PRIMARY[0], size, weight)
+        return (self.FONT_PRIMARY[0], size)
 
     def _get_widget_bg(self):
         """Get the appropriate background color for widgets."""
@@ -254,14 +261,15 @@ class PanelWindow:
                 0, 0, width, height, radius, fill=self.BG_COLOR, outline=""
             )
         else:
-            # Draw subtle border first (slightly larger)
+            # 1px border layer
             self._draw_rounded_rect(
-                0, 0, width, height, radius, fill=self.BORDER_COLOR, outline=""
+                0, 0, width, height, radius,
+                fill=self.BORDER_COLOR_HEX, outline=""
             )
-
-            # Draw main background (inset by 1px for border effect)
+            # Main background (inset 1px so border shows)
             self._draw_rounded_rect(
-                1, 1, width - 1, height - 1, radius - 1, fill=self.BG_COLOR, outline=""
+                1, 1, width - 1, height - 1, max(radius - 1, 0),
+                fill=self.BG_COLOR, outline=""
             )
 
         # Position the content container frame inside the rounded rectangle

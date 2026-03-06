@@ -484,12 +484,12 @@ class TestVisualDesign(unittest.TestCase):
             "FG_COLOR",
             "ACCENT_COLOR",
             "SECONDARY_BG",
-            "BUTTON_ACCEPT",
-            "BUTTON_REJECT",
             "WAVE_COLOR",
-            "HIGHLIGHT_ADD",
-            "HIGHLIGHT_DEL",
-            "SUGGESTION_BG",
+            "SURFACE_COLOR",
+            "BORDER_COLOR_HEX",
+            "ACCENT_GLOW",
+            "ADD_COLOR",
+            "DEL_COLOR",
         ]
         for color in required_colors:
             self.assertTrue(hasattr(PanelWindow, color))
