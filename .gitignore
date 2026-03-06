@@ -52,3 +52,4 @@ test.wav
 # Temporary files
 /tmp/
 *.tmp
+.worktrees/
