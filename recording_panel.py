@@ -40,49 +40,47 @@ class PanelWindow:
     Features smooth animations, rounded corners, and auto-dismiss.
     """
 
-    # Panel dimensions (per design spec)
-    RECORDING_WIDTH = 300
-    RECORDING_HEIGHT = 48
-    REVIEW_WIDTH = 580
-    REVIEW_HEIGHT = 300
+    # ── Dimensions ──
+    RECORDING_WIDTH = 320
+    RECORDING_HEIGHT = 58
+    REVIEW_WIDTH = 540
+    REVIEW_HEIGHT = 420
     BOTTOM_MARGIN = 50
-    BORDER_RADIUS = 26  # Capsule shape (24-28px range)
+    BORDER_RADIUS = 29  # Full capsule for recording pill
 
-    # Animation settings
-    FADE_DURATION = 150  # ms for fade in/out
+    # ── Animation ──
+    FADE_DURATION = 150
     FADE_STEPS = 10
-    TRANSITION_DURATION = 150  # ms for size transitions
-    TRANSITION_STEPS = 10
+    TRANSITION_DURATION = 200
+    TRANSITION_STEPS = 12
+    PULSE_DURATION = 1200  # ms per pulse cycle
 
-    # Auto-dismiss settings
-    AUTO_DISMISS_DELAY = 6000  # 6 seconds (5-8 second range)
+    # ── Auto-dismiss ──
+    AUTO_DISMISS_DELAY = 8000
 
-    # Colors (Dark theme with translucent background)
-    BG_COLOR = "#141414"  # rgba(20,20,20) - translucent via wm_attributes
-    FG_COLOR = "#ffffff"
-    ACCENT_COLOR = "#ff4444"  # Red for recording indicator
-    SECONDARY_BG = "#2d2d2d"
-    BUTTON_ACCEPT = "#4caf50"
-    BUTTON_REJECT = "#f44336"
-    WAVE_COLOR = "#4a9eff"
-    WAVE_COLOR_HIGH = "#ff6b6b"
-    HIGHLIGHT_ADD = "#4caf50"  # Green for additions
-    HIGHLIGHT_DEL = "#f44336"  # Red for deletions
-    SUGGESTION_BG = "#3d3d3d"
-    BORDER_COLOR = "#0f0f0f"  # Subtle border (will draw with alpha)
-    TIMER_COLOR = "#b0b0b0"  # Slightly dimmed timer
-    MODE_BG_COLOR = "#2a2a2a"  # Muted background for mode capsule
-    TRANSPARENT_COLOR = "#010101"  # Special color for corner transparency on Linux
+    # ── Color palette (WhisperFlow dark) ──
+    BG_COLOR = "#0d0d0e"
+    SURFACE_COLOR = "#17171a"
+    BORDER_COLOR_HEX = "#2a2a2f"
+    FG_COLOR = "#f5f5f7"
+    FG_SECONDARY = "#86868b"
+    ACCENT_COLOR = "#8b5cf6"       # Violet
+    ACCENT_GLOW = "#a78bfa"        # Lighter violet (waveform peaks)
+    SECONDARY_BG = "#17171a"
+    RECORDING_DOT_COLOR = "#ef4444"
+    RECORDING_DOT_SIZE = 10
+    WAVE_COLOR = "#8b5cf6"
+    WAVE_ACTIVE = "#a78bfa"
+    ADD_COLOR = "#34d399"          # Emerald (diff: added)
+    DEL_COLOR = "#f87171"          # Red (diff: removed)
 
-    # Font fallbacks
-    FONT_PRIMARY = (
-        "SF Pro Display",
-        "Segoe UI",
-        "Helvetica Neue",
-        "Arial",
-        "sans-serif",
-    )
-    FONT_MONO = ("SF Mono", "SFMono-Regular", "Consolas", "Monaco", "monospace")
+    # ── Compatibility aliases (Linux transparency) ──
+    TRANSPARENT_COLOR = "#010101"  # Linux transparency hack for rounded corners
+    BORDER_COLOR = "#2a2a2f"       # alias for BORDER_COLOR_HEX (used in _on_resize fallback)
+
+    # ── Typography ──
+    FONT_PRIMARY = ("Inter", "SF Pro Display", "Helvetica Neue", "Arial", "sans-serif")
+    FONT_MONO = ("JetBrains Mono", "SF Mono", "Consolas", "Monaco", "monospace")
 
     def __init__(self, on_accept=None, on_reject=None):
         """
@@ -124,14 +122,22 @@ class PanelWindow:
         self._improved_text = ""
         self._mode_name = "Dictation"
 
+        # Audio tracking
+        self._last_audio_time = 0
+        self._has_audio_data = False
+
         # Widget references
         self.recording_frame = None
         self.review_frame = None
         self.processing_frame = None
+        self._spinner_canvas = None
+        self._spinner_angle = 0
         self.timer_label = None
         self.mode_label = None
         self.mode_capsule = None
-        self.indicator_canvas = None
+        self.indicator_canvas = None   # compat alias — old _start_pulse_animation checks this
+        self.recording_indicator = None
+        self.recording_dot = None
         self.waveform_canvas = None
         self.original_text = None
         self.improved_text = None
@@ -140,11 +146,14 @@ class PanelWindow:
         self.content_container = None
 
     def _get_font(self, font_type="primary", size=12, weight="normal"):
-        """Get font tuple with fallbacks."""
+        """Return a tkinter font tuple: (family, size) or (family, size, style)."""
         if font_type == "mono":
-            return self.FONT_MONO[:2] + (size, weight)
-        else:
-            return self.FONT_PRIMARY[:1] + (size, weight)
+            if weight and weight != "normal":
+                return (self.FONT_MONO[0], size, weight)
+            return (self.FONT_MONO[0], size)
+        if weight and weight != "normal":
+            return (self.FONT_PRIMARY[0], size, weight)
+        return (self.FONT_PRIMARY[0], size)
 
     def _get_widget_bg(self):
         """Get the appropriate background color for widgets."""
@@ -254,14 +263,15 @@ class PanelWindow:
                 0, 0, width, height, radius, fill=self.BG_COLOR, outline=""
             )
         else:
-            # Draw subtle border first (slightly larger)
+            # 1px border layer
             self._draw_rounded_rect(
-                0, 0, width, height, radius, fill=self.BORDER_COLOR, outline=""
+                0, 0, width, height, radius,
+                fill=self.BORDER_COLOR_HEX, outline=""
             )
-
-            # Draw main background (inset by 1px for border effect)
+            # Main background (inset 1px so border shows)
             self._draw_rounded_rect(
-                1, 1, width - 1, height - 1, radius - 1, fill=self.BG_COLOR, outline=""
+                1, 1, width - 1, height - 1, max(radius - 1, 0),
+                fill=self.BG_COLOR, outline=""
             )
 
         # Position the content container frame inside the rounded rectangle
@@ -273,82 +283,29 @@ class PanelWindow:
         self._canvas.update_idletasks()
 
     def _draw_rounded_rect(self, x1, y1, x2, y2, radius, **kwargs):
-        """Draw a rounded rectangle on the canvas using proper arc segments."""
-        # Clamp radius to half the minimum dimension
+        """Draw a rounded rectangle using a smooth polygon."""
         max_radius = min((x2 - x1) // 2, (y2 - y1) // 2)
         radius = min(radius, max_radius)
 
         if radius < 1:
-            # Fall back to regular rectangle if radius is too small
             return self._canvas.create_rectangle(x1, y1, x2, y2, **kwargs)
 
-        # Create arcs for corners and rectangles for sides
-        # Using create_arc for corners and create_rectangle for the center
-
-        # Top-left corner arc (90-180 degrees)
-        arc_tl = self._canvas.create_arc(
-            x1,
-            y1,
-            x1 + 2 * radius,
-            y1 + 2 * radius,
-            start=90,
-            extent=90,
-            style=tk.PIESLICE,
-            **kwargs,
-        )
-
-        # Top-right corner arc (0-90 degrees)
-        arc_tr = self._canvas.create_arc(
-            x2 - 2 * radius,
-            y1,
-            x2,
-            y1 + 2 * radius,
-            start=0,
-            extent=90,
-            style=tk.PIESLICE,
-            **kwargs,
-        )
-
-        # Bottom-right corner arc (270-360 degrees)
-        arc_br = self._canvas.create_arc(
-            x2 - 2 * radius,
-            y2 - 2 * radius,
-            x2,
-            y2,
-            start=270,
-            extent=90,
-            style=tk.PIESLICE,
-            **kwargs,
-        )
-
-        # Bottom-left corner arc (180-270 degrees)
-        arc_bl = self._canvas.create_arc(
-            x1,
-            y2 - 2 * radius,
-            x1 + 2 * radius,
-            y2,
-            start=180,
-            extent=90,
-            style=tk.PIESLICE,
-            **kwargs,
-        )
-
-        # Center rectangle
-        rect_center = self._canvas.create_rectangle(
-            x1 + radius, y1, x2 - radius, y2, **kwargs
-        )
-
-        # Side rectangles to fill gaps
-        rect_left = self._canvas.create_rectangle(
-            x1, y1 + radius, x1 + radius, y2 - radius, **kwargs
-        )
-
-        rect_right = self._canvas.create_rectangle(
-            x2 - radius, y1 + radius, x2, y2 - radius, **kwargs
-        )
-
-        # Return the center rectangle ID as the main reference
-        return rect_center
+        # 12-point smooth polygon gives natural rounded corners in tkinter
+        points = [
+            x1 + radius, y1,
+            x2 - radius, y1,
+            x2, y1,
+            x2, y1 + radius,
+            x2, y2 - radius,
+            x2, y2,
+            x2 - radius, y2,
+            x1 + radius, y2,
+            x1, y2,
+            x1, y2 - radius,
+            x1, y1 + radius,
+            x1, y1,
+        ]
+        return self._canvas.create_polygon(points, smooth=True, **kwargs)
 
     def _get_screen_center_x(self, width: int) -> int:
         """Calculate X position for centered window."""
@@ -492,331 +449,219 @@ class PanelWindow:
         return separator
 
     def _create_recording_ui(self):
-        """Create the recording panel UI widgets with horizontal layout."""
-        widget_bg = self._get_widget_bg()
+        """WhisperFlow-style compact recording capsule."""
+        widget_bg = self.BG_COLOR
         self.recording_frame = tk.Frame(self.content_container, bg=widget_bg)
 
-        # Layout: [Dot] [Waveform] | [Timer] | [Mode] horizontal with separators
+        # ── Left: pulsing red dot ──
+        left = tk.Frame(self.recording_frame, bg=widget_bg)
+        left.pack(side=tk.LEFT, padx=(8, 4))
 
-        # Left section: Recording indicator
-        left_frame = tk.Frame(self.recording_frame, bg=widget_bg)
-        left_frame.pack(side=tk.LEFT, padx=(12, 8))
-
-        self.indicator_canvas = tk.Canvas(
-            left_frame,
-            width=16,
-            height=16,
+        self.recording_indicator = tk.Canvas(
+            left,
+            width=self.RECORDING_DOT_SIZE + 2,
+            height=self.RECORDING_DOT_SIZE + 2,
             bg=widget_bg,
             highlightthickness=0,
         )
-        self.indicator_canvas.pack()
-
-        # Create pulsing red circle (8px diameter)
-        self.indicator_circle = self.indicator_canvas.create_oval(
-            4, 4, 12, 12, fill=self.ACCENT_COLOR, outline=""
+        self.recording_indicator.pack(side=tk.LEFT)
+        self.recording_dot = self.recording_indicator.create_oval(
+            1, 1,
+            self.RECORDING_DOT_SIZE + 1,
+            self.RECORDING_DOT_SIZE + 1,
+            fill=self.RECORDING_DOT_COLOR,
+            outline="",
         )
 
-        # Waveform section
+        # ── Center: waveform ──
         wave_frame = tk.Frame(self.recording_frame, bg=widget_bg)
-        wave_frame.pack(side=tk.LEFT, padx=(0, 8))
+        wave_frame.pack(side=tk.LEFT, padx=6, expand=True, fill=tk.X)
 
         self.waveform_canvas = tk.Canvas(
             wave_frame,
-            width=80,
-            height=32,
+            width=160,
+            height=30,
             bg=widget_bg,
             highlightthickness=0,
         )
         self.waveform_canvas.pack()
-
-        # Draw initial waveform placeholder
         self._draw_waveform(0.0)
 
-        # Separator 1
-        sep1 = self._create_separator(self.recording_frame, height=20)
-        sep1.pack(side=tk.LEFT, padx=4)
-
-        # Timer section (monospace, slightly dimmed)
-        timer_frame = tk.Frame(self.recording_frame, bg=widget_bg)
-        timer_frame.pack(side=tk.LEFT, padx=8)
+        # ── Right: timer + mode pill ──
+        right = tk.Frame(self.recording_frame, bg=widget_bg)
+        right.pack(side=tk.RIGHT, padx=(4, 10))
 
         self.timer_label = tk.Label(
-            timer_frame,
+            right,
             text="00:00",
-            font=("SF Mono", 11, "normal"),
-            bg=widget_bg,
-            fg=self.TIMER_COLOR,
-        )
-        self.timer_label.pack()
-
-        # Separator 2
-        sep2 = self._create_separator(self.recording_frame, height=20)
-        sep2.pack(side=tk.LEFT, padx=4)
-
-        # Mode section (small capsule label)
-        mode_frame = tk.Frame(self.recording_frame, bg=widget_bg)
-        mode_frame.pack(side=tk.LEFT, padx=(4, 12))
-
-        # Mode capsule with muted background (keep distinct color even on Linux)
-        self.mode_capsule = tk.Frame(
-            mode_frame,
-            bg=self.MODE_BG_COLOR,
-            padx=8,
-            pady=2,
-        )
-        self.mode_capsule.pack()
-
-        self.mode_label = tk.Label(
-            self.mode_capsule,
-            text="Dictation",
-            font=("SF Pro Display", 9),
-            bg=self.MODE_BG_COLOR,
-            fg="#aaaaaa",
-        )
-        self.mode_label.pack()
-
-    def _create_processing_ui(self):
-        """Create the processing panel UI widgets."""
-        widget_bg = self._get_widget_bg()
-        self.processing_frame = tk.Frame(self.content_container, bg=widget_bg)
-
-        # Center content
-        center_container = tk.Frame(self.processing_frame, bg=widget_bg)
-        center_container.pack(expand=True)
-
-        # Processing spinner (animated dots)
-        self.processing_label = tk.Label(
-            center_container,
-            text="Processing...",
-            font=("SF Pro Display", 14, "bold"),
+            font=self._get_font("mono", 12),
             bg=widget_bg,
             fg=self.FG_COLOR,
         )
-        self.processing_label.pack(pady=(0, 8))
+        self.timer_label.pack(side=tk.LEFT, padx=(0, 6))
 
-        self.processing_subtitle = tk.Label(
-            center_container,
-            text="Transcribing and improving...",
-            font=("SF Pro Text", 10),
-            bg=widget_bg,
-            fg="#888888",
+        self.mode_label = tk.Label(
+            right,
+            text=self._mode_name,
+            font=self._get_font("primary", 9),
+            bg=self.SURFACE_COLOR,
+            fg=self.ACCENT_COLOR,
+            padx=8,
+            pady=3,
         )
-        self.processing_subtitle.pack()
+        self.mode_label.pack(side=tk.LEFT)
 
-        # Animate the dots
+    def _create_processing_ui(self):
+        """Processing state: spinning arc + animated dots label."""
+        widget_bg = self.BG_COLOR
+        self.processing_frame = tk.Frame(self.content_container, bg=widget_bg)
+
+        row = tk.Frame(self.processing_frame, bg=widget_bg)
+        row.pack(expand=True)
+
+        # Arc spinner canvas
+        self._spinner_canvas = tk.Canvas(
+            row, width=20, height=20, bg=widget_bg, highlightthickness=0
+        )
+        self._spinner_canvas.pack(side=tk.LEFT, padx=(0, 8))
+        self._spinner_angle = 0
+
+        self.processing_label = tk.Label(
+            row,
+            text="transcribing",
+            font=self._get_font("primary", 13),
+            bg=widget_bg,
+            fg=self.FG_SECONDARY,
+        )
+        self.processing_label.pack(side=tk.LEFT)
+
         self._animate_processing()
 
     def _animate_processing(self):
-        """Animate the processing text."""
+        """Rotate spinner arc and cycle dots on label."""
         if self.state != PanelState.PROCESSING or not self.processing_label:
             return
 
+        # Rotate arc by 15 deg per frame (~90 deg/s at 16fps)
+        self._spinner_angle = (self._spinner_angle + 15) % 360
+        self._spinner_canvas.delete("all")
+        start = self._spinner_angle
+        self._spinner_canvas.create_arc(
+            2, 2, 18, 18,
+            start=start,
+            extent=270,
+            outline=self.ACCENT_COLOR,
+            width=2,
+            style="arc",
+        )
+
+        # Cycle dots: "" → "." → ".." → "..."
+        base = "transcribing"
         dots = ["", ".", "..", "..."]
         current = self.processing_label.cget("text")
-        base = "Processing"
-        next_dots = dots[(dots.index(current[len(base) :]) + 1) % len(dots)]
+        dot_count = len(current) - len(base)
+        next_dots = dots[(dot_count + 1) % 4]
         self.processing_label.config(text=base + next_dots)
 
         if self.root:
-            self.root.after(500, self._animate_processing)
+            self.root.after(110, self._animate_processing)
 
     def _create_review_ui(self):
-        """Create the review panel UI widgets with diff highlighting."""
-        widget_bg = self._get_widget_bg()
+        """WhisperFlow review card: inline diff + keyboard hints."""
+        widget_bg = self.BG_COLOR
         self.review_frame = tk.Frame(self.content_container, bg=widget_bg)
 
-        # Bind mouse events for auto-dismiss
-        self.review_frame.bind("<Enter>", self._on_review_enter)
-        self.review_frame.bind("<Leave>", self._on_review_leave)
-
-        # Title
-        self.title_label = tk.Label(
+        # ── Section label: Original ──
+        tk.Label(
             self.review_frame,
-            text="Review Improvements",
-            font=("SF Pro Display", 14, "bold"),
-            bg=widget_bg,
-            fg=self.FG_COLOR,
-        )
-        self.title_label.pack(pady=(12, 8))
-        self.title_label.bind("<Enter>", self._on_review_enter)
-        self.title_label.bind("<Leave>", self._on_review_leave)
-
-        # Instructions with better visual styling
-        instructions_frame = tk.Frame(self.review_frame, bg=widget_bg)
-        instructions_frame.pack(pady=(0, 8))
-        instructions_frame.bind("<Enter>", self._on_review_enter)
-        instructions_frame.bind("<Leave>", self._on_review_leave)
-
-        instructions = tk.Label(
-            instructions_frame,
-            text="Press Enter to Accept  •  Press Escape to Reject",
-            font=("SF Pro Text", 9),
-            bg=widget_bg,
-            fg="#666666",
-        )
-        instructions.pack()
-        instructions.bind("<Enter>", self._on_review_enter)
-        instructions.bind("<Leave>", self._on_review_leave)
-
-        # Content frame for text areas
-        content_frame = tk.Frame(self.review_frame, bg=widget_bg)
-        content_frame.pack(fill=tk.BOTH, expand=True, padx=16)
-        content_frame.bind("<Enter>", self._on_review_enter)
-        content_frame.bind("<Leave>", self._on_review_leave)
-
-        # Original text section
-        original_frame = tk.Frame(content_frame, bg=self.SECONDARY_BG, padx=8, pady=8)
-        original_frame.pack(fill=tk.BOTH, expand=True, pady=(0, 4))
-        original_frame.bind("<Enter>", self._on_review_enter)
-        original_frame.bind("<Leave>", self._on_review_leave)
-
-        tk.Label(
-            original_frame,
             text="Original",
-            font=("SF Pro Text", 10, "bold"),
-            bg=self.SECONDARY_BG,
-            fg="#888888",
-        ).pack(anchor=tk.W, pady=(0, 4))
+            font=self._get_font("primary", 10),
+            bg=widget_bg,
+            fg=self.FG_SECONDARY,
+        ).pack(anchor=tk.W, padx=16, pady=(14, 2))
 
+        # Original text widget — shows diff inline
         self.original_text = tk.Text(
-            original_frame,
-            height=3,
+            self.review_frame,
+            height=4,
             wrap=tk.WORD,
-            font=("SF Pro Text", 11),
-            bg=self.SECONDARY_BG,
+            font=self._get_font("primary", 12),
+            bg=self.SURFACE_COLOR,
             fg=self.FG_COLOR,
             relief=tk.FLAT,
+            padx=12,
+            pady=8,
             highlightthickness=0,
-            padx=4,
-            pady=4,
+            state=tk.DISABLED,
+            cursor="arrow",
         )
-        self.original_text.pack(fill=tk.BOTH, expand=True)
-        self.original_text.config(state=tk.DISABLED)
-        self.original_text.bind("<Enter>", self._on_review_enter)
-        self.original_text.bind("<Leave>", self._on_review_leave)
+        self.original_text.pack(fill=tk.X, padx=16)
 
-        # Improved text section with diff highlighting
-        improved_frame = tk.Frame(content_frame, bg=self.SECONDARY_BG, padx=8, pady=8)
-        improved_frame.pack(fill=tk.BOTH, expand=True, pady=(4, 4))
-        improved_frame.bind("<Enter>", self._on_review_enter)
-        improved_frame.bind("<Leave>", self._on_review_leave)
+        # Configure diff tags
+        self.original_text.tag_configure(
+            "del", foreground=self.DEL_COLOR, overstrike=True
+        )
+        self.original_text.tag_configure(
+            "add", foreground=self.ADD_COLOR, font=self._get_font("primary", 12, "bold")
+        )
+
+        # Divider
+        tk.Frame(self.review_frame, bg=self.BORDER_COLOR_HEX, height=1).pack(
+            fill=tk.X, padx=16, pady=10
+        )
+
+        # ── Section label: Improved ──
+        improved_header = tk.Frame(self.review_frame, bg=widget_bg)
+        improved_header.pack(fill=tk.X, padx=16, pady=(0, 2))
 
         tk.Label(
-            improved_frame,
+            improved_header,
             text="Improved",
-            font=("SF Pro Text", 10, "bold"),
-            bg=self.SECONDARY_BG,
-            fg="#4caf50",
-        ).pack(anchor=tk.W, pady=(0, 4))
-
-        self.improved_text = tk.Text(
-            improved_frame,
-            height=3,
-            wrap=tk.WORD,
-            font=("SF Pro Text", 11),
-            bg=self.SECONDARY_BG,
-            fg=self.FG_COLOR,
-            relief=tk.FLAT,
-            highlightthickness=0,
-            padx=4,
-            pady=4,
-        )
-        self.improved_text.pack(fill=tk.BOTH, expand=True)
-        self.improved_text.bind("<Enter>", self._on_review_enter)
-        self.improved_text.bind("<Leave>", self._on_review_leave)
-
-        # Configure tags for diff highlighting with better contrast
-        self.improved_text.tag_configure(
-            "added",
-            background="#2d5a3d",
-            foreground="#90ee90",
-            font=("SF Pro Text", 11, "bold"),
-        )
-        self.improved_text.tag_configure(
-            "removed",
-            background="#5a2d2d",
-            foreground="#ff9999",
-            font=("SF Pro Text", 11),
-        )
-
-        self.improved_text.config(state=tk.DISABLED)
-
-        # Suggestions section
-        suggestions_frame = tk.Frame(
-            content_frame, bg=self.SUGGESTION_BG, padx=8, pady=6
-        )
-        suggestions_frame.pack(fill=tk.X, pady=(4, 8))
-        suggestions_frame.bind("<Enter>", self._on_review_enter)
-        suggestions_frame.bind("<Leave>", self._on_review_leave)
+            font=self._get_font("primary", 10),
+            bg=widget_bg,
+            fg=self.ACCENT_COLOR,
+        ).pack(side=tk.LEFT)
 
         tk.Label(
-            suggestions_frame,
-            text="Key Improvements",
-            font=("SF Pro Text", 9, "bold"),
-            bg=self.SUGGESTION_BG,
-            fg="#aaaaaa",
-        ).pack(anchor=tk.W, pady=(0, 4))
+            improved_header,
+            text="✦",
+            font=self._get_font("primary", 10),
+            bg=widget_bg,
+            fg=self.ACCENT_GLOW,
+        ).pack(side=tk.LEFT, padx=(4, 0))
 
-        self.suggestions_text = tk.Text(
-            suggestions_frame,
-            height=2,
+        # Improved text — editable
+        self.improved_text = tk.Text(
+            self.review_frame,
+            height=5,
             wrap=tk.WORD,
-            font=("SF Pro Text", 9),
-            bg=self.SUGGESTION_BG,
-            fg="#cccccc",
+            font=self._get_font("primary", 12),
+            bg=self.SURFACE_COLOR,
+            fg=self.FG_COLOR,
             relief=tk.FLAT,
+            padx=12,
+            pady=8,
             highlightthickness=0,
-            padx=4,
-            pady=3,
+            insertbackground=self.ACCENT_COLOR,
         )
-        self.suggestions_text.pack(fill=tk.X)
-        self.suggestions_text.config(state=tk.DISABLED)
-        self.suggestions_text.bind("<Enter>", self._on_review_enter)
-        self.suggestions_text.bind("<Leave>", self._on_review_leave)
+        self.improved_text.pack(fill=tk.BOTH, expand=True, padx=16)
 
-        # Buttons frame with consistent spacing
-        button_frame = tk.Frame(self.review_frame, bg=self.BG_COLOR)
-        button_frame.pack(pady=(0, 12), padx=16, fill=tk.X)
-        button_frame.bind("<Enter>", self._on_review_enter)
-        button_frame.bind("<Leave>", self._on_review_leave)
-
-        # Reject button with hover effect
-        self.reject_btn = tk.Button(
-            button_frame,
-            text="✕ Reject (Esc)",
-            font=("SF Pro Text", 11),
-            bg=self.BUTTON_REJECT,
-            fg=self.FG_COLOR,
-            activebackground="#d32f2f",
-            activeforeground=self.FG_COLOR,
-            relief=tk.FLAT,
-            padx=20,
-            pady=6,
-            cursor="hand2",
-            command=self._on_reject,
+        # Divider
+        tk.Frame(self.review_frame, bg=self.BORDER_COLOR_HEX, height=1).pack(
+            fill=tk.X, padx=16, pady=10
         )
-        self.reject_btn.pack(side=tk.LEFT, padx=(0, 8))
-        self.reject_btn.bind("<Enter>", self._on_review_enter)
-        self.reject_btn.bind("<Leave>", self._on_review_leave)
 
-        # Accept button with hover effect
-        self.accept_btn = tk.Button(
-            button_frame,
-            text="✓ Accept (Enter)",
-            font=("SF Pro Text", 11),
-            bg=self.BUTTON_ACCEPT,
-            fg=self.FG_COLOR,
-            activebackground="#388e3c",
-            activeforeground=self.FG_COLOR,
-            relief=tk.FLAT,
-            padx=20,
-            pady=6,
-            cursor="hand2",
-            command=self._on_accept,
-        )
-        self.accept_btn.pack(side=tk.RIGHT)
-        self.accept_btn.bind("<Enter>", self._on_review_enter)
-        self.accept_btn.bind("<Leave>", self._on_review_leave)
+        # ── Keyboard hints (right-aligned) ──
+        hint_frame = tk.Frame(self.review_frame, bg=widget_bg)
+        hint_frame.pack(fill=tk.X, padx=16, pady=(0, 14))
+
+        tk.Label(
+            hint_frame,
+            text="↵ Accept  ·  ⎋ Dismiss",
+            font=self._get_font("mono", 10),
+            bg=widget_bg,
+            fg=self.FG_SECONDARY,
+        ).pack(side=tk.RIGHT)
 
     def _on_review_enter(self, event=None):
         """Handle mouse enter on review panel - cancel auto-dismiss."""
@@ -889,6 +734,31 @@ class PanelWindow:
                     diff_result.append(("added", added))
 
         return diff_result
+
+    def _compute_word_diff(self, original: str, improved: str) -> list:
+        """
+        Compute word-level diff between original and improved text.
+
+        Returns list of (tag, text) tuples where tag is:
+          'equal' — unchanged word(s)
+          'del'   — word(s) in original but not improved (show strikethrough)
+          'add'   — word(s) in improved but not original (show bold emerald)
+        """
+        orig_words = original.split()
+        impr_words = improved.split()
+        matcher = difflib.SequenceMatcher(None, orig_words, impr_words)
+        result = []
+        for op, i1, i2, j1, j2 in matcher.get_opcodes():
+            if op == "equal":
+                result.append(("equal", " ".join(orig_words[i1:i2])))
+            elif op == "delete":
+                result.append(("del", " ".join(orig_words[i1:i2])))
+            elif op == "insert":
+                result.append(("add", " ".join(impr_words[j1:j2])))
+            elif op == "replace":
+                result.append(("del", " ".join(orig_words[i1:i2])))
+                result.append(("add", " ".join(impr_words[j1:j2])))
+        return result
 
     def _extract_suggestions(self, original: str, improved: str) -> list:
         """
@@ -969,57 +839,63 @@ class PanelWindow:
         self.state = PanelState.HIDDEN
 
     def _draw_waveform(self, audio_level: float):
-        """Draw a waveform visualization on the canvas."""
+        """WhisperFlow-style violet bar waveform."""
+        if not self.waveform_canvas:
+            return
         self.waveform_canvas.delete("all")
 
-        width = 80
-        height = 32
+        width = 160
+        height = 30
         center_y = height // 2
-
-        # Draw waveform bars
-        num_bars = 10
-        bar_width = 4
-        gap = 3
+        num_bars = 20
+        bar_width = 3
+        gap = 2
+        total = num_bars * (bar_width + gap) - gap
+        start_x = (width - total) // 2
 
         for i in range(num_bars):
-            x = i * (bar_width + gap) + 3
+            dist = abs(i - num_bars / 2) / (num_bars / 2)
+            # Breathing baseline
+            breathing = 0.5 + 0.5 * math.sin(self.pulse_state * 0.8 + i * 0.4)
+            base_h = 2 + 3 * breathing * (1 - dist * 0.5)
+            # Audio reactivity — center bars taller
+            level_h = audio_level * 20 * (1.0 - dist * 0.6)
+            h = max(2, base_h + level_h)
 
-            # Create wave effect based on position and audio level
-            wave = math.sin((i + self.timer_seconds * 5) * 0.5) * 0.5 + 0.5
-            bar_height = (3 + wave * 12) * (0.3 + audio_level * 0.7)
+            x = start_x + i * (bar_width + gap)
+            # Peaks glow brighter
+            color = self.ACCENT_GLOW if (audio_level > 0.5 and dist < 0.4) else self.WAVE_COLOR
 
-            # Color gradient based on audio level
-            if audio_level > 0.7:
-                color = self.WAVE_COLOR_HIGH
-            else:
-                color = self.WAVE_COLOR
-
+            y1 = center_y - h / 2
+            y2 = center_y + h / 2
             self.waveform_canvas.create_rectangle(
-                x,
-                center_y - bar_height / 2,
-                x + bar_width,
-                center_y + bar_height / 2,
-                fill=color,
-                outline="",
+                x, y1, x + bar_width, y2,
+                fill=color, outline="",
             )
 
     def _start_pulse_animation(self):
-        """Start the recording indicator pulse animation."""
+        """Smooth pulse: dot opacity + waveform breathing at 30fps."""
         if self.state != PanelState.RECORDING:
             return
 
-        # Calculate pulse opacity
-        self.pulse_state += 0.15
-        pulse = (math.sin(self.pulse_state) + 1) / 2  # 0.0 to 1.0
+        self.pulse_state += 0.05  # ~30fps tick at 33ms interval
 
-        # Adjust color brightness based on pulse
-        r = int(255 * (0.6 + 0.4 * pulse))
-        color = f"#{r:02x}4444"
+        # Dot: sine-driven color between dim red and full red
+        alpha = 0.4 + 0.6 * (0.5 + 0.5 * math.sin(self.pulse_state * 1.2))
+        r = int(239 * alpha)
+        g = int(68 * alpha)
+        b = int(68 * alpha)
+        color = f"#{r:02x}{g:02x}{b:02x}"
+        if hasattr(self, "recording_dot") and self.recording_indicator:
+            self.recording_indicator.itemconfig(self.recording_dot, fill=color)
 
-        if self.indicator_canvas:
-            self.indicator_canvas.itemconfig(self.indicator_circle, fill=color)
+        # Waveform: only animate if no recent audio
+        if self.waveform_canvas:
+            import time as _time
+            if _time.time() - self._last_audio_time > 0.1 or not self._has_audio_data:
+                self._draw_waveform(0.0)  # breathing at rest
 
-        self.pulse_job = self.root.after(50, self._start_pulse_animation)
+        self.pulse_job = self.root.after(33, self._start_pulse_animation)  # ~30fps
 
     def _stop_pulse_animation(self):
         """Stop the pulse animation."""
@@ -1063,6 +939,10 @@ class PanelWindow:
         self._stop_pulse_animation()
         self._cancel_auto_dismiss()
         self.timer_seconds = 0
+
+        # Reset audio tracking flags
+        self._has_audio_data = False
+        self._last_audio_time = 0
 
         # Hide all frames first
         self.recording_frame.pack_forget()
@@ -1115,13 +995,19 @@ class PanelWindow:
 
     def update_waveform(self, audio_level: float):
         """
-        Update the waveform visualization.
+        Update the waveform visualization with real audio data.
 
         Args:
             audio_level: Float between 0.0 and 1.0 representing audio amplitude
         """
+        import time as _time
+
         if self.state != PanelState.RECORDING or self.waveform_canvas is None:
             return
+
+        # Track that we received audio data
+        self._last_audio_time = _time.time()
+        self._has_audio_data = True
 
         # Clamp audio level
         audio_level = max(0.0, min(1.0, audio_level))
@@ -1157,14 +1043,7 @@ class PanelWindow:
             print(f"[Panel] Mode label not available (panel may not be initialized)")
 
     def show_review(self, original: str, improved: str):
-        """
-        Expand to review panel with original and improved text comparison.
-        Includes smooth transition animation and auto-dismiss.
-
-        Args:
-            original: The original transcribed text
-            improved: The AI-improved text
-        """
+        """Show the review panel with inline word diff."""
         if self.root is None:
             self._create_window()
             self._create_recording_ui()
@@ -1179,59 +1058,32 @@ class PanelWindow:
         self._stop_timer()
         self._stop_pulse_animation()
 
-        # Hide all frames first
+        # Populate original text with inline diff
+        self.original_text.config(state=tk.NORMAL)
+        self.original_text.delete("1.0", tk.END)
+        diff = self._compute_word_diff(original, improved)
+        for tag, text in diff:
+            if tag == "equal":
+                self.original_text.insert(tk.END, text + " ")
+            elif tag == "del":
+                self.original_text.insert(tk.END, text + " ", "del")
+            elif tag == "add":
+                self.original_text.insert(tk.END, "[" + text + "] ", "add")
+        self.original_text.config(state=tk.DISABLED)
+
+        # Populate improved text
+        self.improved_text.delete("1.0", tk.END)
+        self.improved_text.insert("1.0", improved)
+
+        self._position_window(self.REVIEW_WIDTH, self.REVIEW_HEIGHT)
+        self.state = PanelState.REVIEW
+
         self.recording_frame.pack_forget()
         self.processing_frame.pack_forget()
-        self.review_frame.pack_forget()
-
-        # Show review frame
-        self.state = PanelState.REVIEW
         self.review_frame.pack(fill=tk.BOTH, expand=True)
 
-        # Update original text
-        if self.original_text:
-            self.original_text.config(state=tk.NORMAL)
-            self.original_text.delete("1.0", tk.END)
-            self.original_text.insert("1.0", original)
-            self.original_text.config(state=tk.DISABLED)
-
-        # Update improved text with diff highlighting
-        if self.improved_text:
-            diff_result = self._compute_diff(original, improved)
-            self._insert_highlighted_text(self.improved_text, diff_result)
-
-        # Update suggestions
-        if self.suggestions_text:
-            suggestions = self._extract_suggestions(original, improved)
-            self.suggestions_text.config(state=tk.NORMAL)
-            self.suggestions_text.delete("1.0", tk.END)
-            if suggestions:
-                self.suggestions_text.insert("1.0", "  •  ".join(suggestions))
-            else:
-                self.suggestions_text.insert(
-                    "1.0", "Grammar and style improvements applied"
-                )
-            self.suggestions_text.config(state=tk.DISABLED)
-
-        # Position and show window with smooth animation
-        if self._current_geometry:
-            # Animate from current position
-            current = self._parse_geometry(self._current_geometry)
-            target = {
-                "width": self.REVIEW_WIDTH,
-                "height": self.REVIEW_HEIGHT,
-                "x": self._get_screen_center_x(self.REVIEW_WIDTH),
-                "y": self._get_screen_bottom_y(self.REVIEW_HEIGHT),
-            }
-            self.root.deiconify()
-            self.root.lift()
-            self._animate_transition(current, target)
-        else:
-            self._position_window(self.REVIEW_WIDTH, self.REVIEW_HEIGHT)
-            self.root.deiconify()
-            self.root.lift()
-
-        # Start auto-dismiss timer
+        self.root.deiconify()
+        self.root.lift()
         self._start_auto_dismiss()
 
     def hide(self):

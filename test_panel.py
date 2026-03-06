@@ -261,6 +261,44 @@ class TestPanelIntegration(unittest.TestCase):
         self.assertGreater(PanelWindow.TRANSITION_STEPS, 0)
 
 
+def test_compute_word_diff_equal():
+    from recording_panel import PanelWindow
+    panel = PanelWindow()
+    result = panel._compute_word_diff("hello world", "hello world")
+    # All tokens should be 'equal'
+    assert all(tag == "equal" for tag, _ in result)
+
+def test_compute_word_diff_replace():
+    from recording_panel import PanelWindow
+    panel = PanelWindow()
+    result = panel._compute_word_diff("look into this", "investigate this")
+    tags = [tag for tag, _ in result]
+    assert "del" in tags
+    assert "add" in tags
+
+def test_compute_word_diff_returns_list_of_tuples():
+    from recording_panel import PanelWindow
+    panel = PanelWindow()
+    result = panel._compute_word_diff("foo bar", "foo baz")
+    assert isinstance(result, list)
+    assert all(isinstance(t, tuple) and len(t) == 2 for t in result)
+
+
+def test_draw_rounded_rect_returns_item_id():
+    """_draw_rounded_rect must return a canvas item id (int), not None."""
+    import tkinter as tk
+    root = tk.Tk()
+    root.withdraw()
+    canvas = tk.Canvas(root, width=200, height=100)
+    from recording_panel import PanelWindow
+    panel = PanelWindow()
+    panel._canvas = canvas
+    result = panel._draw_rounded_rect(10, 10, 190, 90, 20, fill="#ff0000")
+    assert result is not None, "Expected a canvas item id, got None"
+    assert isinstance(result, int), f"Expected int item id, got {type(result)}"
+    root.destroy()
+
+
 class TestDiffHighlighting(unittest.TestCase):
     """Test diff highlighting functionality."""
 
@@ -469,12 +507,12 @@ class TestVisualDesign(unittest.TestCase):
             "FG_COLOR",
             "ACCENT_COLOR",
             "SECONDARY_BG",
-            "BUTTON_ACCEPT",
-            "BUTTON_REJECT",
             "WAVE_COLOR",
-            "HIGHLIGHT_ADD",
-            "HIGHLIGHT_DEL",
-            "SUGGESTION_BG",
+            "SURFACE_COLOR",
+            "BORDER_COLOR_HEX",
+            "ACCENT_GLOW",
+            "ADD_COLOR",
+            "DEL_COLOR",
         ]
         for color in required_colors:
             self.assertTrue(hasattr(PanelWindow, color))
