@@ -573,202 +573,101 @@ class PanelWindow:
             self.root.after(110, self._animate_processing)
 
     def _create_review_ui(self):
-        """Create the review panel UI widgets with diff highlighting."""
-        widget_bg = self._get_widget_bg()
+        """WhisperFlow review card: inline diff + keyboard hints."""
+        widget_bg = self.BG_COLOR
         self.review_frame = tk.Frame(self.content_container, bg=widget_bg)
 
-        # Bind mouse events for auto-dismiss
-        self.review_frame.bind("<Enter>", self._on_review_enter)
-        self.review_frame.bind("<Leave>", self._on_review_leave)
-
-        # Title
-        self.title_label = tk.Label(
+        # ── Section label: Original ──
+        tk.Label(
             self.review_frame,
-            text="Review Improvements",
-            font=("SF Pro Display", 14, "bold"),
-            bg=widget_bg,
-            fg=self.FG_COLOR,
-        )
-        self.title_label.pack(pady=(12, 8))
-        self.title_label.bind("<Enter>", self._on_review_enter)
-        self.title_label.bind("<Leave>", self._on_review_leave)
-
-        # Instructions with better visual styling
-        instructions_frame = tk.Frame(self.review_frame, bg=widget_bg)
-        instructions_frame.pack(pady=(0, 8))
-        instructions_frame.bind("<Enter>", self._on_review_enter)
-        instructions_frame.bind("<Leave>", self._on_review_leave)
-
-        instructions = tk.Label(
-            instructions_frame,
-            text="Press Enter to Accept  •  Press Escape to Reject",
-            font=("SF Pro Text", 9),
-            bg=widget_bg,
-            fg="#666666",
-        )
-        instructions.pack()
-        instructions.bind("<Enter>", self._on_review_enter)
-        instructions.bind("<Leave>", self._on_review_leave)
-
-        # Content frame for text areas
-        content_frame = tk.Frame(self.review_frame, bg=widget_bg)
-        content_frame.pack(fill=tk.BOTH, expand=True, padx=16)
-        content_frame.bind("<Enter>", self._on_review_enter)
-        content_frame.bind("<Leave>", self._on_review_leave)
-
-        # Original text section
-        original_frame = tk.Frame(content_frame, bg=self.SECONDARY_BG, padx=8, pady=8)
-        original_frame.pack(fill=tk.BOTH, expand=True, pady=(0, 4))
-        original_frame.bind("<Enter>", self._on_review_enter)
-        original_frame.bind("<Leave>", self._on_review_leave)
-
-        tk.Label(
-            original_frame,
             text="Original",
-            font=("SF Pro Text", 10, "bold"),
-            bg=self.SECONDARY_BG,
-            fg="#888888",
-        ).pack(anchor=tk.W, pady=(0, 4))
+            font=self._get_font("primary", 10),
+            bg=widget_bg,
+            fg=self.FG_SECONDARY,
+        ).pack(anchor=tk.W, padx=16, pady=(14, 2))
 
+        # Original text widget — shows diff inline
         self.original_text = tk.Text(
-            original_frame,
-            height=3,
+            self.review_frame,
+            height=4,
             wrap=tk.WORD,
-            font=("SF Pro Text", 11),
-            bg=self.SECONDARY_BG,
+            font=self._get_font("primary", 12),
+            bg=self.SURFACE_COLOR,
             fg=self.FG_COLOR,
             relief=tk.FLAT,
+            padx=12,
+            pady=8,
             highlightthickness=0,
-            padx=4,
-            pady=4,
+            state=tk.DISABLED,
+            cursor="arrow",
         )
-        self.original_text.pack(fill=tk.BOTH, expand=True)
-        self.original_text.config(state=tk.DISABLED)
-        self.original_text.bind("<Enter>", self._on_review_enter)
-        self.original_text.bind("<Leave>", self._on_review_leave)
+        self.original_text.pack(fill=tk.X, padx=16)
 
-        # Improved text section with diff highlighting
-        improved_frame = tk.Frame(content_frame, bg=self.SECONDARY_BG, padx=8, pady=8)
-        improved_frame.pack(fill=tk.BOTH, expand=True, pady=(4, 4))
-        improved_frame.bind("<Enter>", self._on_review_enter)
-        improved_frame.bind("<Leave>", self._on_review_leave)
+        # Configure diff tags
+        self.original_text.tag_configure(
+            "del", foreground=self.DEL_COLOR, overstrike=True
+        )
+        self.original_text.tag_configure(
+            "add", foreground=self.ADD_COLOR, font=self._get_font("primary", 12, "bold")
+        )
+
+        # Divider
+        tk.Frame(self.review_frame, bg=self.BORDER_COLOR_HEX, height=1).pack(
+            fill=tk.X, padx=16, pady=10
+        )
+
+        # ── Section label: Improved ──
+        improved_header = tk.Frame(self.review_frame, bg=widget_bg)
+        improved_header.pack(fill=tk.X, padx=16, pady=(0, 2))
 
         tk.Label(
-            improved_frame,
+            improved_header,
             text="Improved",
-            font=("SF Pro Text", 10, "bold"),
-            bg=self.SECONDARY_BG,
-            fg="#4caf50",
-        ).pack(anchor=tk.W, pady=(0, 4))
-
-        self.improved_text = tk.Text(
-            improved_frame,
-            height=3,
-            wrap=tk.WORD,
-            font=("SF Pro Text", 11),
-            bg=self.SECONDARY_BG,
-            fg=self.FG_COLOR,
-            relief=tk.FLAT,
-            highlightthickness=0,
-            padx=4,
-            pady=4,
-        )
-        self.improved_text.pack(fill=tk.BOTH, expand=True)
-        self.improved_text.bind("<Enter>", self._on_review_enter)
-        self.improved_text.bind("<Leave>", self._on_review_leave)
-
-        # Configure tags for diff highlighting with better contrast
-        self.improved_text.tag_configure(
-            "added",
-            background="#2d5a3d",
-            foreground="#90ee90",
-            font=("SF Pro Text", 11, "bold"),
-        )
-        self.improved_text.tag_configure(
-            "removed",
-            background="#5a2d2d",
-            foreground="#ff9999",
-            font=("SF Pro Text", 11),
-        )
-
-        self.improved_text.config(state=tk.DISABLED)
-
-        # Suggestions section
-        suggestions_frame = tk.Frame(
-            content_frame, bg=self.SUGGESTION_BG, padx=8, pady=6
-        )
-        suggestions_frame.pack(fill=tk.X, pady=(4, 8))
-        suggestions_frame.bind("<Enter>", self._on_review_enter)
-        suggestions_frame.bind("<Leave>", self._on_review_leave)
+            font=self._get_font("primary", 10),
+            bg=widget_bg,
+            fg=self.ACCENT_COLOR,
+        ).pack(side=tk.LEFT)
 
         tk.Label(
-            suggestions_frame,
-            text="Key Improvements",
-            font=("SF Pro Text", 9, "bold"),
-            bg=self.SUGGESTION_BG,
-            fg="#aaaaaa",
-        ).pack(anchor=tk.W, pady=(0, 4))
+            improved_header,
+            text="✦",
+            font=self._get_font("primary", 10),
+            bg=widget_bg,
+            fg=self.ACCENT_GLOW,
+        ).pack(side=tk.LEFT, padx=(4, 0))
 
-        self.suggestions_text = tk.Text(
-            suggestions_frame,
-            height=2,
+        # Improved text — editable
+        self.improved_text = tk.Text(
+            self.review_frame,
+            height=5,
             wrap=tk.WORD,
-            font=("SF Pro Text", 9),
-            bg=self.SUGGESTION_BG,
-            fg="#cccccc",
+            font=self._get_font("primary", 12),
+            bg=self.SURFACE_COLOR,
+            fg=self.FG_COLOR,
             relief=tk.FLAT,
+            padx=12,
+            pady=8,
             highlightthickness=0,
-            padx=4,
-            pady=3,
+            insertbackground=self.ACCENT_COLOR,
         )
-        self.suggestions_text.pack(fill=tk.X)
-        self.suggestions_text.config(state=tk.DISABLED)
-        self.suggestions_text.bind("<Enter>", self._on_review_enter)
-        self.suggestions_text.bind("<Leave>", self._on_review_leave)
+        self.improved_text.pack(fill=tk.BOTH, expand=True, padx=16)
 
-        # Buttons frame with consistent spacing
-        button_frame = tk.Frame(self.review_frame, bg=self.BG_COLOR)
-        button_frame.pack(pady=(0, 12), padx=16, fill=tk.X)
-        button_frame.bind("<Enter>", self._on_review_enter)
-        button_frame.bind("<Leave>", self._on_review_leave)
-
-        # Reject button with hover effect
-        self.reject_btn = tk.Button(
-            button_frame,
-            text="✕ Reject (Esc)",
-            font=("SF Pro Text", 11),
-            bg=self.BUTTON_REJECT,
-            fg=self.FG_COLOR,
-            activebackground="#d32f2f",
-            activeforeground=self.FG_COLOR,
-            relief=tk.FLAT,
-            padx=20,
-            pady=6,
-            cursor="hand2",
-            command=self._on_reject,
+        # Divider
+        tk.Frame(self.review_frame, bg=self.BORDER_COLOR_HEX, height=1).pack(
+            fill=tk.X, padx=16, pady=10
         )
-        self.reject_btn.pack(side=tk.LEFT, padx=(0, 8))
-        self.reject_btn.bind("<Enter>", self._on_review_enter)
-        self.reject_btn.bind("<Leave>", self._on_review_leave)
 
-        # Accept button with hover effect
-        self.accept_btn = tk.Button(
-            button_frame,
-            text="✓ Accept (Enter)",
-            font=("SF Pro Text", 11),
-            bg=self.BUTTON_ACCEPT,
-            fg=self.FG_COLOR,
-            activebackground="#388e3c",
-            activeforeground=self.FG_COLOR,
-            relief=tk.FLAT,
-            padx=20,
-            pady=6,
-            cursor="hand2",
-            command=self._on_accept,
-        )
-        self.accept_btn.pack(side=tk.RIGHT)
-        self.accept_btn.bind("<Enter>", self._on_review_enter)
-        self.accept_btn.bind("<Leave>", self._on_review_leave)
+        # ── Keyboard hints (right-aligned) ──
+        hint_frame = tk.Frame(self.review_frame, bg=widget_bg)
+        hint_frame.pack(fill=tk.X, padx=16, pady=(0, 14))
+
+        tk.Label(
+            hint_frame,
+            text="↵ Accept  ·  ⎋ Dismiss",
+            font=self._get_font("mono", 10),
+            bg=widget_bg,
+            fg=self.FG_SECONDARY,
+        ).pack(side=tk.RIGHT)
 
     def _on_review_enter(self, event=None):
         """Handle mouse enter on review panel - cancel auto-dismiss."""
@@ -1150,14 +1049,7 @@ class PanelWindow:
             print(f"[Panel] Mode label not available (panel may not be initialized)")
 
     def show_review(self, original: str, improved: str):
-        """
-        Expand to review panel with original and improved text comparison.
-        Includes smooth transition animation and auto-dismiss.
-
-        Args:
-            original: The original transcribed text
-            improved: The AI-improved text
-        """
+        """Show the review panel with inline word diff."""
         if self.root is None:
             self._create_window()
             self._create_recording_ui()
@@ -1172,59 +1064,32 @@ class PanelWindow:
         self._stop_timer()
         self._stop_pulse_animation()
 
-        # Hide all frames first
+        # Populate original text with inline diff
+        self.original_text.config(state=tk.NORMAL)
+        self.original_text.delete("1.0", tk.END)
+        diff = self._compute_word_diff(original, improved)
+        for tag, text in diff:
+            if tag == "equal":
+                self.original_text.insert(tk.END, text + " ")
+            elif tag == "del":
+                self.original_text.insert(tk.END, text + " ", "del")
+            elif tag == "add":
+                self.original_text.insert(tk.END, "[" + text + "] ", "add")
+        self.original_text.config(state=tk.DISABLED)
+
+        # Populate improved text
+        self.improved_text.delete("1.0", tk.END)
+        self.improved_text.insert("1.0", improved)
+
+        self._position_window(self.REVIEW_WIDTH, self.REVIEW_HEIGHT)
+        self.state = PanelState.REVIEW
+
         self.recording_frame.pack_forget()
         self.processing_frame.pack_forget()
-        self.review_frame.pack_forget()
-
-        # Show review frame
-        self.state = PanelState.REVIEW
         self.review_frame.pack(fill=tk.BOTH, expand=True)
 
-        # Update original text
-        if self.original_text:
-            self.original_text.config(state=tk.NORMAL)
-            self.original_text.delete("1.0", tk.END)
-            self.original_text.insert("1.0", original)
-            self.original_text.config(state=tk.DISABLED)
-
-        # Update improved text with diff highlighting
-        if self.improved_text:
-            diff_result = self._compute_diff(original, improved)
-            self._insert_highlighted_text(self.improved_text, diff_result)
-
-        # Update suggestions
-        if self.suggestions_text:
-            suggestions = self._extract_suggestions(original, improved)
-            self.suggestions_text.config(state=tk.NORMAL)
-            self.suggestions_text.delete("1.0", tk.END)
-            if suggestions:
-                self.suggestions_text.insert("1.0", "  •  ".join(suggestions))
-            else:
-                self.suggestions_text.insert(
-                    "1.0", "Grammar and style improvements applied"
-                )
-            self.suggestions_text.config(state=tk.DISABLED)
-
-        # Position and show window with smooth animation
-        if self._current_geometry:
-            # Animate from current position
-            current = self._parse_geometry(self._current_geometry)
-            target = {
-                "width": self.REVIEW_WIDTH,
-                "height": self.REVIEW_HEIGHT,
-                "x": self._get_screen_center_x(self.REVIEW_WIDTH),
-                "y": self._get_screen_bottom_y(self.REVIEW_HEIGHT),
-            }
-            self.root.deiconify()
-            self.root.lift()
-            self._animate_transition(current, target)
-        else:
-            self._position_window(self.REVIEW_WIDTH, self.REVIEW_HEIGHT)
-            self.root.deiconify()
-            self.root.lift()
-
-        # Start auto-dismiss timer
+        self.root.deiconify()
+        self.root.lift()
         self._start_auto_dismiss()
 
     def hide(self):
