@@ -74,15 +74,9 @@ class PanelWindow:
     ADD_COLOR = "#34d399"          # Emerald (diff: added)
     DEL_COLOR = "#f87171"          # Red (diff: removed)
 
-    # ── Compatibility aliases for unreplaced code ──
-    WAVE_COLOR_HIGH = "#a78bfa"    # maps to ACCENT_GLOW until _draw_waveform replaced
-    SUGGESTION_BG = "#17171a"      # maps to SURFACE_COLOR until _create_review_ui replaced
-    BUTTON_ACCEPT = "#34d399"      # maps to ADD_COLOR until _create_review_ui replaced
-    BUTTON_REJECT = "#f87171"      # maps to DEL_COLOR until _create_review_ui replaced
-    BORDER_COLOR = "#2a2a2f"       # maps to BORDER_COLOR_HEX for _on_resize
-    TIMER_COLOR = "#f5f5f7"        # maps to FG_COLOR until _create_recording_ui replaced
-    MODE_BG_COLOR = "#17171a"      # maps to SURFACE_COLOR until _create_recording_ui replaced
-    TRANSPARENT_COLOR = "#010101"  # Linux transparency hack — kept until _create_window replaced
+    # ── Compatibility aliases (Linux transparency) ──
+    TRANSPARENT_COLOR = "#010101"  # Linux transparency hack for rounded corners
+    BORDER_COLOR = "#2a2a2f"       # alias for BORDER_COLOR_HEX (used in _on_resize fallback)
 
     # ── Typography ──
     FONT_PRIMARY = ("Inter", "SF Pro Display", "Helvetica Neue", "Arial", "sans-serif")
