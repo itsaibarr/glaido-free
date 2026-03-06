@@ -608,6 +608,8 @@ class Glaido:
             self.panel = PanelWindow(
                 on_accept=self._on_accept,
                 on_reject=self._on_reject,
+                on_stop=self.toggle,    # Enter during recording → stop and transcribe
+                on_cancel=self.cancel,  # Esc during recording → cancel without transcribing
             )
             print("[Glaido] Panel created in background thread")
 

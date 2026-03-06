@@ -82,7 +82,7 @@ class PanelWindow:
     FONT_PRIMARY = ("Inter", "SF Pro Display", "Helvetica Neue", "Arial", "sans-serif")
     FONT_MONO = ("JetBrains Mono", "SF Mono", "Consolas", "Monaco", "monospace")
 
-    def __init__(self, on_accept=None, on_reject=None):
+    def __init__(self, on_accept=None, on_reject=None, on_stop=None, on_cancel=None):
         """
         Initialize the panel window.
 
@@ -116,6 +116,8 @@ class PanelWindow:
         # Callbacks
         self.on_accept = on_accept
         self.on_reject = on_reject
+        self.on_stop = on_stop
+        self.on_cancel = on_cancel
 
         # Stored text for callbacks
         self._original_text = ""
@@ -202,11 +204,27 @@ class PanelWindow:
             pass
 
         # Bind keyboard shortcuts
-        self.root.bind("<Return>", lambda e: self._on_accept())
-        self.root.bind("<Escape>", lambda e: self._on_reject())
+        self.root.bind("<Return>", self._on_key_return)
+        self.root.bind("<Escape>", self._on_key_escape)
 
         # Create the rounded corner canvas container
         self._create_rounded_container()
+
+    def _on_key_return(self, event=None):
+        if self.state == PanelState.RECORDING:
+            if self.on_stop:
+                self.on_stop()
+        elif self.state == PanelState.REVIEW:
+            self._on_accept()
+
+    def _on_key_escape(self, event=None):
+        if self.state == PanelState.RECORDING:
+            if self.on_cancel:
+                self.on_cancel()
+            else:
+                self._do_hide()
+        elif self.state == PanelState.REVIEW:
+            self._on_reject()
 
     def _create_rounded_container(self):
         """Create a canvas with rounded rectangle for the window background."""
@@ -855,17 +873,19 @@ class PanelWindow:
 
         for i in range(num_bars):
             dist = abs(i - num_bars / 2) / (num_bars / 2)
-            # Breathing baseline
-            breathing = 0.5 + 0.5 * math.sin(self.pulse_state * 0.8 + i * 0.4)
-            base_h = 2 + 3 * breathing * (1 - dist * 0.5)
-            # Audio reactivity — center bars taller
-            level_h = audio_level * 20 * (1.0 - dist * 0.6)
-            h = max(2, base_h + level_h)
+
+            if audio_level < 0.02:
+                # At rest: flat 1px stub so contrast with active state is obvious
+                h = 1
+                color = self.WAVE_COLOR
+            else:
+                # Active: pure audio reactivity, no breathing baseline
+                # Center bars get full height, edges taper off
+                level_h = audio_level * 26 * (1.0 - dist * 0.55)
+                h = max(2, level_h)
+                color = self.ACCENT_GLOW if (audio_level > 0.4 and dist < 0.45) else self.WAVE_COLOR
 
             x = start_x + i * (bar_width + gap)
-            # Peaks glow brighter
-            color = self.ACCENT_GLOW if (audio_level > 0.5 and dist < 0.4) else self.WAVE_COLOR
-
             y1 = center_y - h / 2
             y2 = center_y + h / 2
             self.waveform_canvas.create_rectangle(
@@ -889,11 +909,11 @@ class PanelWindow:
         if hasattr(self, "recording_dot") and self.recording_indicator:
             self.recording_indicator.itemconfig(self.recording_dot, fill=color)
 
-        # Waveform: only animate if no recent audio
+        # Waveform at rest: draw flat stubs when no audio has arrived recently
         if self.waveform_canvas:
             import time as _time
-            if _time.time() - self._last_audio_time > 0.1 or not self._has_audio_data:
-                self._draw_waveform(0.0)  # breathing at rest
+            if not self._has_audio_data or _time.time() - self._last_audio_time > 0.15:
+                self._draw_waveform(0.0)  # flat 1px stubs at rest
 
         self.pulse_job = self.root.after(33, self._start_pulse_animation)  # ~30fps
 
