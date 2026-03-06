@@ -136,6 +136,8 @@ class PanelWindow:
         self.recording_frame = None
         self.review_frame = None
         self.processing_frame = None
+        self._spinner_canvas = None
+        self._spinner_angle = 0
         self.timer_label = None
         self.mode_label = None
         self.mode_capsule = None
@@ -516,49 +518,59 @@ class PanelWindow:
         self.mode_label.pack(side=tk.LEFT)
 
     def _create_processing_ui(self):
-        """Create the processing panel UI widgets."""
-        widget_bg = self._get_widget_bg()
+        """Processing state: spinning arc + animated dots label."""
+        widget_bg = self.BG_COLOR
         self.processing_frame = tk.Frame(self.content_container, bg=widget_bg)
 
-        # Center content
-        center_container = tk.Frame(self.processing_frame, bg=widget_bg)
-        center_container.pack(expand=True)
+        row = tk.Frame(self.processing_frame, bg=widget_bg)
+        row.pack(expand=True)
 
-        # Processing spinner (animated dots)
+        # Arc spinner canvas
+        self._spinner_canvas = tk.Canvas(
+            row, width=20, height=20, bg=widget_bg, highlightthickness=0
+        )
+        self._spinner_canvas.pack(side=tk.LEFT, padx=(0, 8))
+        self._spinner_angle = 0
+
         self.processing_label = tk.Label(
-            center_container,
-            text="Processing...",
-            font=("SF Pro Display", 14, "bold"),
+            row,
+            text="transcribing",
+            font=self._get_font("primary", 13),
             bg=widget_bg,
-            fg=self.FG_COLOR,
+            fg=self.FG_SECONDARY,
         )
-        self.processing_label.pack(pady=(0, 8))
+        self.processing_label.pack(side=tk.LEFT)
 
-        self.processing_subtitle = tk.Label(
-            center_container,
-            text="Transcribing and improving...",
-            font=("SF Pro Text", 10),
-            bg=widget_bg,
-            fg="#888888",
-        )
-        self.processing_subtitle.pack()
-
-        # Animate the dots
         self._animate_processing()
 
     def _animate_processing(self):
-        """Animate the processing text."""
+        """Rotate spinner arc and cycle dots on label."""
         if self.state != PanelState.PROCESSING or not self.processing_label:
             return
 
+        # Rotate arc by 15 deg per frame (~90 deg/s at 16fps)
+        self._spinner_angle = (self._spinner_angle + 15) % 360
+        self._spinner_canvas.delete("all")
+        start = self._spinner_angle
+        self._spinner_canvas.create_arc(
+            2, 2, 18, 18,
+            start=start,
+            extent=270,
+            outline=self.ACCENT_COLOR,
+            width=2,
+            style="arc",
+        )
+
+        # Cycle dots: "" → "." → ".." → "..."
+        base = "transcribing"
         dots = ["", ".", "..", "..."]
         current = self.processing_label.cget("text")
-        base = "Processing"
-        next_dots = dots[(dots.index(current[len(base) :]) + 1) % len(dots)]
+        dot_count = len(current) - len(base)
+        next_dots = dots[(dot_count + 1) % 4]
         self.processing_label.config(text=base + next_dots)
 
         if self.root:
-            self.root.after(500, self._animate_processing)
+            self.root.after(110, self._animate_processing)
 
     def _create_review_ui(self):
         """Create the review panel UI widgets with diff highlighting."""
