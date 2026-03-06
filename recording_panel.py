@@ -135,7 +135,9 @@ class PanelWindow:
         self.timer_label = None
         self.mode_label = None
         self.mode_capsule = None
-        self.indicator_canvas = None
+        self.indicator_canvas = None   # compat alias — old _start_pulse_animation checks this
+        self.recording_indicator = None
+        self.recording_dot = None
         self.waveform_canvas = None
         self.original_text = None
         self.improved_text = None
@@ -447,88 +449,67 @@ class PanelWindow:
         return separator
 
     def _create_recording_ui(self):
-        """Create the recording panel UI widgets with horizontal layout."""
-        widget_bg = self._get_widget_bg()
+        """WhisperFlow-style compact recording capsule."""
+        widget_bg = self.BG_COLOR
         self.recording_frame = tk.Frame(self.content_container, bg=widget_bg)
 
-        # Layout: [Dot] [Waveform] | [Timer] | [Mode] horizontal with separators
+        # ── Left: pulsing red dot ──
+        left = tk.Frame(self.recording_frame, bg=widget_bg)
+        left.pack(side=tk.LEFT, padx=(8, 4))
 
-        # Left section: Recording indicator
-        left_frame = tk.Frame(self.recording_frame, bg=widget_bg)
-        left_frame.pack(side=tk.LEFT, padx=(12, 8))
-
-        self.indicator_canvas = tk.Canvas(
-            left_frame,
-            width=16,
-            height=16,
+        self.recording_indicator = tk.Canvas(
+            left,
+            width=self.RECORDING_DOT_SIZE + 2,
+            height=self.RECORDING_DOT_SIZE + 2,
             bg=widget_bg,
             highlightthickness=0,
         )
-        self.indicator_canvas.pack()
-
-        # Create pulsing red circle (8px diameter)
-        self.indicator_circle = self.indicator_canvas.create_oval(
-            4, 4, 12, 12, fill=self.ACCENT_COLOR, outline=""
+        self.recording_indicator.pack(side=tk.LEFT)
+        self.recording_dot = self.recording_indicator.create_oval(
+            1, 1,
+            self.RECORDING_DOT_SIZE + 1,
+            self.RECORDING_DOT_SIZE + 1,
+            fill=self.RECORDING_DOT_COLOR,
+            outline="",
         )
 
-        # Waveform section
+        # ── Center: waveform ──
         wave_frame = tk.Frame(self.recording_frame, bg=widget_bg)
-        wave_frame.pack(side=tk.LEFT, padx=(0, 8))
+        wave_frame.pack(side=tk.LEFT, padx=6, expand=True, fill=tk.X)
 
         self.waveform_canvas = tk.Canvas(
             wave_frame,
-            width=80,
-            height=32,
+            width=160,
+            height=30,
             bg=widget_bg,
             highlightthickness=0,
         )
         self.waveform_canvas.pack()
-
-        # Draw initial waveform placeholder
         self._draw_waveform(0.0)
 
-        # Separator 1
-        sep1 = self._create_separator(self.recording_frame, height=20)
-        sep1.pack(side=tk.LEFT, padx=4)
-
-        # Timer section (monospace, slightly dimmed)
-        timer_frame = tk.Frame(self.recording_frame, bg=widget_bg)
-        timer_frame.pack(side=tk.LEFT, padx=8)
+        # ── Right: timer + mode pill ──
+        right = tk.Frame(self.recording_frame, bg=widget_bg)
+        right.pack(side=tk.RIGHT, padx=(4, 10))
 
         self.timer_label = tk.Label(
-            timer_frame,
+            right,
             text="00:00",
-            font=("SF Mono", 11, "normal"),
+            font=self._get_font("mono", 12),
             bg=widget_bg,
-            fg=self.TIMER_COLOR,
+            fg=self.FG_COLOR,
         )
-        self.timer_label.pack()
-
-        # Separator 2
-        sep2 = self._create_separator(self.recording_frame, height=20)
-        sep2.pack(side=tk.LEFT, padx=4)
-
-        # Mode section (small capsule label)
-        mode_frame = tk.Frame(self.recording_frame, bg=widget_bg)
-        mode_frame.pack(side=tk.LEFT, padx=(4, 12))
-
-        # Mode capsule with muted background (keep distinct color even on Linux)
-        self.mode_capsule = tk.Frame(
-            mode_frame,
-            bg=self.MODE_BG_COLOR,
-            padx=8,
-            pady=2,
-        )
-        self.mode_capsule.pack()
+        self.timer_label.pack(side=tk.LEFT, padx=(0, 6))
 
         self.mode_label = tk.Label(
-            self.mode_capsule,
-            text="Dictation",
-            font=("SF Pro Display", 9),
-            bg=self.MODE_BG_COLOR,
-            fg="#aaaaaa",
+            right,
+            text=self._mode_name,
+            font=self._get_font("primary", 9),
+            bg=self.SURFACE_COLOR,
+            fg=self.ACCENT_COLOR,
+            padx=8,
+            pady=3,
         )
-        self.mode_label.pack()
+        self.mode_label.pack(side=tk.LEFT)
 
     def _create_processing_ui(self):
         """Create the processing panel UI widgets."""
