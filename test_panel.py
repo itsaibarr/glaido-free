@@ -261,6 +261,21 @@ class TestPanelIntegration(unittest.TestCase):
         self.assertGreater(PanelWindow.TRANSITION_STEPS, 0)
 
 
+def test_draw_rounded_rect_returns_item_id():
+    """_draw_rounded_rect must return a canvas item id (int), not None."""
+    import tkinter as tk
+    root = tk.Tk()
+    root.withdraw()
+    canvas = tk.Canvas(root, width=200, height=100)
+    from recording_panel import PanelWindow
+    panel = PanelWindow()
+    panel._canvas = canvas
+    result = panel._draw_rounded_rect(10, 10, 190, 90, 20, fill="#ff0000")
+    assert result is not None, "Expected a canvas item id, got None"
+    assert isinstance(result, int), f"Expected int item id, got {type(result)}"
+    root.destroy()
+
+
 class TestDiffHighlighting(unittest.TestCase):
     """Test diff highlighting functionality."""
 

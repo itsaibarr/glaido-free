@@ -273,82 +273,29 @@ class PanelWindow:
         self._canvas.update_idletasks()
 
     def _draw_rounded_rect(self, x1, y1, x2, y2, radius, **kwargs):
-        """Draw a rounded rectangle on the canvas using proper arc segments."""
-        # Clamp radius to half the minimum dimension
+        """Draw a rounded rectangle using a smooth polygon."""
         max_radius = min((x2 - x1) // 2, (y2 - y1) // 2)
         radius = min(radius, max_radius)
 
         if radius < 1:
-            # Fall back to regular rectangle if radius is too small
             return self._canvas.create_rectangle(x1, y1, x2, y2, **kwargs)
 
-        # Create arcs for corners and rectangles for sides
-        # Using create_arc for corners and create_rectangle for the center
-
-        # Top-left corner arc (90-180 degrees)
-        arc_tl = self._canvas.create_arc(
-            x1,
-            y1,
-            x1 + 2 * radius,
-            y1 + 2 * radius,
-            start=90,
-            extent=90,
-            style=tk.PIESLICE,
-            **kwargs,
-        )
-
-        # Top-right corner arc (0-90 degrees)
-        arc_tr = self._canvas.create_arc(
-            x2 - 2 * radius,
-            y1,
-            x2,
-            y1 + 2 * radius,
-            start=0,
-            extent=90,
-            style=tk.PIESLICE,
-            **kwargs,
-        )
-
-        # Bottom-right corner arc (270-360 degrees)
-        arc_br = self._canvas.create_arc(
-            x2 - 2 * radius,
-            y2 - 2 * radius,
-            x2,
-            y2,
-            start=270,
-            extent=90,
-            style=tk.PIESLICE,
-            **kwargs,
-        )
-
-        # Bottom-left corner arc (180-270 degrees)
-        arc_bl = self._canvas.create_arc(
-            x1,
-            y2 - 2 * radius,
-            x1 + 2 * radius,
-            y2,
-            start=180,
-            extent=90,
-            style=tk.PIESLICE,
-            **kwargs,
-        )
-
-        # Center rectangle
-        rect_center = self._canvas.create_rectangle(
-            x1 + radius, y1, x2 - radius, y2, **kwargs
-        )
-
-        # Side rectangles to fill gaps
-        rect_left = self._canvas.create_rectangle(
-            x1, y1 + radius, x1 + radius, y2 - radius, **kwargs
-        )
-
-        rect_right = self._canvas.create_rectangle(
-            x2 - radius, y1 + radius, x2, y2 - radius, **kwargs
-        )
-
-        # Return the center rectangle ID as the main reference
-        return rect_center
+        # 12-point smooth polygon gives natural rounded corners in tkinter
+        points = [
+            x1 + radius, y1,
+            x2 - radius, y1,
+            x2, y1,
+            x2, y1 + radius,
+            x2, y2 - radius,
+            x2, y2,
+            x2 - radius, y2,
+            x1 + radius, y2,
+            x1, y2,
+            x1, y2 - radius,
+            x1, y1 + radius,
+            x1, y1,
+        ]
+        return self._canvas.create_polygon(points, smooth=True, **kwargs)
 
     def _get_screen_center_x(self, width: int) -> int:
         """Calculate X position for centered window."""
