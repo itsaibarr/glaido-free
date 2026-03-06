@@ -842,6 +842,31 @@ class PanelWindow:
 
         return diff_result
 
+    def _compute_word_diff(self, original: str, improved: str) -> list:
+        """
+        Compute word-level diff between original and improved text.
+
+        Returns list of (tag, text) tuples where tag is:
+          'equal' — unchanged word(s)
+          'del'   — word(s) in original but not improved (show strikethrough)
+          'add'   — word(s) in improved but not original (show bold emerald)
+        """
+        orig_words = original.split()
+        impr_words = improved.split()
+        matcher = difflib.SequenceMatcher(None, orig_words, impr_words)
+        result = []
+        for op, i1, i2, j1, j2 in matcher.get_opcodes():
+            if op == "equal":
+                result.append(("equal", " ".join(orig_words[i1:i2])))
+            elif op == "delete":
+                result.append(("del", " ".join(orig_words[i1:i2])))
+            elif op == "insert":
+                result.append(("add", " ".join(impr_words[j1:j2])))
+            elif op == "replace":
+                result.append(("del", " ".join(orig_words[i1:i2])))
+                result.append(("add", " ".join(impr_words[j1:j2])))
+        return result
+
     def _extract_suggestions(self, original: str, improved: str) -> list:
         """
         Extract key improvement suggestions from the diff.

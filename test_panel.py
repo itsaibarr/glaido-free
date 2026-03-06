@@ -261,6 +261,29 @@ class TestPanelIntegration(unittest.TestCase):
         self.assertGreater(PanelWindow.TRANSITION_STEPS, 0)
 
 
+def test_compute_word_diff_equal():
+    from recording_panel import PanelWindow
+    panel = PanelWindow()
+    result = panel._compute_word_diff("hello world", "hello world")
+    # All tokens should be 'equal'
+    assert all(tag == "equal" for tag, _ in result)
+
+def test_compute_word_diff_replace():
+    from recording_panel import PanelWindow
+    panel = PanelWindow()
+    result = panel._compute_word_diff("look into this", "investigate this")
+    tags = [tag for tag, _ in result]
+    assert "del" in tags
+    assert "add" in tags
+
+def test_compute_word_diff_returns_list_of_tuples():
+    from recording_panel import PanelWindow
+    panel = PanelWindow()
+    result = panel._compute_word_diff("foo bar", "foo baz")
+    assert isinstance(result, list)
+    assert all(isinstance(t, tuple) and len(t) == 2 for t in result)
+
+
 def test_draw_rounded_rect_returns_item_id():
     """_draw_rounded_rect must return a canvas item id (int), not None."""
     import tkinter as tk
