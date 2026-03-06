@@ -128,6 +128,10 @@ class PanelWindow:
         self._improved_text = ""
         self._mode_name = "Dictation"
 
+        # Audio tracking
+        self._last_audio_time = 0
+        self._has_audio_data = False
+
         # Widget references
         self.recording_frame = None
         self.review_frame = None
@@ -905,57 +909,63 @@ class PanelWindow:
         self.state = PanelState.HIDDEN
 
     def _draw_waveform(self, audio_level: float):
-        """Draw a waveform visualization on the canvas."""
+        """WhisperFlow-style violet bar waveform."""
+        if not self.waveform_canvas:
+            return
         self.waveform_canvas.delete("all")
 
-        width = 80
-        height = 32
+        width = 160
+        height = 30
         center_y = height // 2
-
-        # Draw waveform bars
-        num_bars = 10
-        bar_width = 4
-        gap = 3
+        num_bars = 20
+        bar_width = 3
+        gap = 2
+        total = num_bars * (bar_width + gap) - gap
+        start_x = (width - total) // 2
 
         for i in range(num_bars):
-            x = i * (bar_width + gap) + 3
+            dist = abs(i - num_bars / 2) / (num_bars / 2)
+            # Breathing baseline
+            breathing = 0.5 + 0.5 * math.sin(self.pulse_state * 0.8 + i * 0.4)
+            base_h = 2 + 3 * breathing * (1 - dist * 0.5)
+            # Audio reactivity — center bars taller
+            level_h = audio_level * 20 * (1.0 - dist * 0.6)
+            h = max(2, base_h + level_h)
 
-            # Create wave effect based on position and audio level
-            wave = math.sin((i + self.timer_seconds * 5) * 0.5) * 0.5 + 0.5
-            bar_height = (3 + wave * 12) * (0.3 + audio_level * 0.7)
+            x = start_x + i * (bar_width + gap)
+            # Peaks glow brighter
+            color = self.ACCENT_GLOW if (audio_level > 0.5 and dist < 0.4) else self.WAVE_COLOR
 
-            # Color gradient based on audio level
-            if audio_level > 0.7:
-                color = self.WAVE_COLOR_HIGH
-            else:
-                color = self.WAVE_COLOR
-
+            y1 = center_y - h / 2
+            y2 = center_y + h / 2
             self.waveform_canvas.create_rectangle(
-                x,
-                center_y - bar_height / 2,
-                x + bar_width,
-                center_y + bar_height / 2,
-                fill=color,
-                outline="",
+                x, y1, x + bar_width, y2,
+                fill=color, outline="",
             )
 
     def _start_pulse_animation(self):
-        """Start the recording indicator pulse animation."""
+        """Smooth pulse: dot opacity + waveform breathing at 30fps."""
         if self.state != PanelState.RECORDING:
             return
 
-        # Calculate pulse opacity
-        self.pulse_state += 0.15
-        pulse = (math.sin(self.pulse_state) + 1) / 2  # 0.0 to 1.0
+        self.pulse_state += 0.05  # ~30fps tick at 33ms interval
 
-        # Adjust color brightness based on pulse
-        r = int(255 * (0.6 + 0.4 * pulse))
-        color = f"#{r:02x}4444"
+        # Dot: sine-driven color between dim red and full red
+        alpha = 0.4 + 0.6 * (0.5 + 0.5 * math.sin(self.pulse_state * 1.2))
+        r = int(239 * alpha)
+        g = int(68 * alpha)
+        b = int(68 * alpha)
+        color = f"#{r:02x}{g:02x}{b:02x}"
+        if hasattr(self, "recording_dot") and self.recording_indicator:
+            self.recording_indicator.itemconfig(self.recording_dot, fill=color)
 
-        if self.indicator_canvas:
-            self.indicator_canvas.itemconfig(self.indicator_circle, fill=color)
+        # Waveform: only animate if no recent audio
+        if self.waveform_canvas:
+            import time as _time
+            if _time.time() - self._last_audio_time > 0.1 or not self._has_audio_data:
+                self._draw_waveform(0.0)  # breathing at rest
 
-        self.pulse_job = self.root.after(50, self._start_pulse_animation)
+        self.pulse_job = self.root.after(33, self._start_pulse_animation)  # ~30fps
 
     def _stop_pulse_animation(self):
         """Stop the pulse animation."""
@@ -999,6 +1009,10 @@ class PanelWindow:
         self._stop_pulse_animation()
         self._cancel_auto_dismiss()
         self.timer_seconds = 0
+
+        # Reset audio tracking flags
+        self._has_audio_data = False
+        self._last_audio_time = 0
 
         # Hide all frames first
         self.recording_frame.pack_forget()
@@ -1051,13 +1065,19 @@ class PanelWindow:
 
     def update_waveform(self, audio_level: float):
         """
-        Update the waveform visualization.
+        Update the waveform visualization with real audio data.
 
         Args:
             audio_level: Float between 0.0 and 1.0 representing audio amplitude
         """
+        import time as _time
+
         if self.state != PanelState.RECORDING or self.waveform_canvas is None:
             return
+
+        # Track that we received audio data
+        self._last_audio_time = _time.time()
+        self._has_audio_data = True
 
         # Clamp audio level
         audio_level = max(0.0, min(1.0, audio_level))
