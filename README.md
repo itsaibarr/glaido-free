@@ -1,5 +1,7 @@
 # Glaido
 
+Status: paused since March 2026.
+
 **Advanced Voice Transcription & AI Prompt Assistant for Linux**
 
 Glaido is a technical background service designed for professional workflows. It transforms spoken intent into structured text or optimized AI prompts using the Groq Whisper and Llama 3 APIs.
